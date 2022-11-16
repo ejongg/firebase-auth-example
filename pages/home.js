@@ -10,24 +10,45 @@ const Home = () => {
     const [users, setUsers] = useState([])
 
     useEffect(() => {
-        (async () => {
-            const usersRef = await getDocs(collection(db, "users"))
-            const usersSnap = usersRef.docs.map(u => u.data())
-            setUsers(usersSnap)
-        })()
-
-        onAuthStateChanged(auth, async user => {
+        const unsubscribe = onAuthStateChanged(auth, async user => {
             if (user) {
                 const ref = doc(db, "users", user.uid)
                 const snap = await getDoc(ref)
                 setUser(snap.data())
             }
         })
+
+        fetchUsers()
+
+        return () => {
+            unsubscribe()
+        }
     }, [])
+
+    const fetchUsers = async () => {
+        const usersRef = await getDocs(collection(db, "users"))
+        const usersSnap = usersRef.docs.map(u => ({
+            id: u.id,
+            ...u.data()
+        }))
+
+        setUsers(usersSnap)
+    }
 
     const logout = () => {
         auth.signOut()
         router.push('/')
+    }
+
+    const deleteUser = async (id) => {
+        const res = await fetch(`/api/users/${id}`, {
+            method: 'DELETE'
+        })
+        if (res.status !== 204) {
+            console.log('Something went wrong')
+        }
+
+        fetchUsers()
     }
 
     if (!user) {
@@ -58,6 +79,7 @@ const Home = () => {
                         <th>Name</th>
                         <th>Address</th>
                         <th>Fave animal</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,6 +88,9 @@ const Home = () => {
                             <td>{u.name}</td>
                             <td>{u.address}</td>
                             <td>{u.fave}</td>
+                            <td>
+                                <button onClick={() => deleteUser(u.id)}>Delete</button>
+                            </td>
                         </tr>
                     )) }
                 </tbody>
